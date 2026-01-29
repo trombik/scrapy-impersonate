@@ -33,11 +33,11 @@ class ImpersonateDownloadHandler(HTTPDownloadHandler):
     def from_crawler(cls: Type[ImpersonateHandler], crawler: Crawler) -> ImpersonateHandler:
         return cls(crawler)
 
-    def download_request(self, request: Request, spider: Spider) -> Deferred:
+    def download_request(self, request: Request, spider: Spider = None) -> Deferred:
         if request.meta.get("impersonate"):
             return self._download_request(request, spider)
 
-        return super().download_request(request, spider)
+        return super().download_request(request)
 
     @deferred_f_from_coro_f
     async def _download_request(self, request: Request, spider: Spider) -> Response:
