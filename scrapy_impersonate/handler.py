@@ -1,4 +1,5 @@
 import time
+import inspect
 from typing import Type, TypeVar
 
 from curl_cffi.requests import AsyncSession
@@ -11,12 +12,11 @@ from scrapy.http.request import Request
 from scrapy.http.response import Response
 from scrapy.responsetypes import responsetypes
 from scrapy.spiders import Spider
-from scrapy.utils.defer import deferred_f_from_coro_f
+from scrapy.utils.defer import deferred_f_from_coro_f, maybe_deferred_to_future
 from scrapy.utils.reactor import verify_installed_reactor
 from twisted.internet.defer import Deferred
 
 from scrapy_impersonate.parser import CurlOptionsParser, RequestParser
-
 ImpersonateHandler = TypeVar("ImpersonateHandler", bound="ImpersonateDownloadHandler")
 
 
@@ -33,11 +33,14 @@ class ImpersonateDownloadHandler(HTTPDownloadHandler):
     def from_crawler(cls: Type[ImpersonateHandler], crawler: Crawler) -> ImpersonateHandler:
         return cls(crawler)
 
-    def download_request(self, request: Request, spider: Spider = None) -> Deferred:
+    async def download_request(self, request: Request, spider: Spider = None) -> Deferred:
         if request.meta.get("impersonate"):
-            return self._download_request(request, spider)
+            return await maybe_deferred_to_future(self._download_request(request, spider))
+        result = super().download_request(request)
+        if inspect.isawaitable(result):
+            return await result
+        return await maybe_deferred_to_future(super().download_request(request))
 
-        return super().download_request(request)
 
     @deferred_f_from_coro_f
     async def _download_request(self, request: Request, spider: Spider) -> Response:
